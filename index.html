@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f6f4ef">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Juego del Sim</title>
+<meta name="description" content="Juego del Sim: 6 puntos, 15 líneas. Pierde quien cierre un triángulo de su color.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Sim">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--r:#e5484d;--b:#3b82f6;--bg:#f6f4ef;--card:#fff;--ink:#222;--mut:#888;--btn:#333;--btnTx:#fff;--bd:#ddd;--free:#cfcfcf;--node:#333;--soft:#eee}
+body.dark{--r:#ff5f66;--b:#5b9bff;--bg:#15171c;--card:#22252c;--ink:#e8e8e8;--mut:#9aa0aa;--btn:#e8e8e8;--btnTx:#15171c;--bd:#3a3e47;--free:#4a4f5a;--node:#cfd3da;--soft:#30343c}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);display:flex;justify-content:center;transition:background .2s}
+.wrap{width:100%;max-width:560px;padding:14px}
+.top{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px}
+h1{margin:0;font-size:1.6rem;letter-spacing:.5px}
+.icon{width:42px;height:42px;border-radius:50%;border:2px solid var(--bd);background:var(--card);color:var(--ink);font-size:1.2rem;cursor:pointer;margin-left:6px}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;padding:10px 4px;border:2px solid var(--bd);background:var(--card);color:var(--ink);border-radius:10px;font-weight:600;cursor:pointer;font-size:.95rem}
+.tabs button.on{border-color:var(--btn);background:var(--btn);color:var(--btnTx)}
+.panel{background:var(--card);border-radius:12px;padding:10px 12px;margin-bottom:10px;box-shadow:0 1px 3px #0001;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;font-size:.92rem}
+.panel.hide{display:none}
+button.act{padding:8px 14px;border:none;border-radius:8px;background:var(--btn);color:var(--btnTx);font-weight:600;cursor:pointer}
+button.act.sec{background:var(--mut);color:#fff}
+button.act:disabled{opacity:.4;cursor:default}
+select,input[type=text]{padding:7px 9px;border:1px solid var(--bd);border-radius:8px;font-size:.95rem;background:var(--card);color:var(--ink)}
+input[type=text]{width:100px;text-transform:uppercase;text-align:center;letter-spacing:2px;font-weight:700}
+.code{font-size:1.4rem;font-weight:800;letter-spacing:3px;padding:2px 10px;background:var(--soft);border-radius:8px}
+#status{text-align:center;font-weight:700;font-size:1.1rem;padding:10px;border-radius:12px;background:var(--card);margin-bottom:8px;box-shadow:0 1px 3px #0001;min-height:46px}
+.score{display:flex;gap:10px;margin-bottom:8px}
+.score div{flex:1;background:var(--card);border-radius:12px;padding:8px;text-align:center;box-shadow:0 1px 3px #0001;border-top:5px solid}
+.score .s1{border-color:var(--r)}.score .s2{border-color:var(--b)}
+.score b{display:block;font-size:1.6rem}
+.score .turn{outline:3px solid var(--btn)}
+svg{width:100%;height:auto;background:var(--card);border-radius:16px;box-shadow:0 1px 3px #0001;touch-action:manipulation}
+.edge{stroke-linecap:round;transition:stroke .15s,stroke-width .15s}
+.e0{stroke:var(--free);stroke-width:3;stroke-dasharray:6 6}
+.e1{stroke:var(--r);stroke-width:7}
+.e2{stroke:var(--b);stroke-width:7}
+.p1{stroke:var(--r);stroke-width:6;opacity:.5;stroke-dasharray:none}
+.p2{stroke:var(--b);stroke-width:6;opacity:.5;stroke-dasharray:none}
+.danger{stroke:#f59e0b;stroke-width:3;stroke-dasharray:2 7}
+.last{filter:drop-shadow(0 0 5px #000a)}
+.lose{stroke-width:11;animation:blink .7s ease-in-out 4 alternate}
+@keyframes blink{from{opacity:1}to{opacity:.35}}
+.hit{stroke:transparent;stroke-width:26;cursor:pointer}
+.node{fill:var(--node)}
+.lbl{fill:var(--card);font-weight:700;font-size:15px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+details{background:var(--card);border-radius:12px;padding:10px 14px;box-shadow:0 1px 3px #0001;font-size:.92rem;line-height:1.45}
+summary{font-weight:700;cursor:pointer}
+label{display:flex;align-items:center;gap:5px;cursor:pointer;min-height:40px}
+label input{width:20px;height:20px}
+.small{color:var(--mut);font-size:.82rem}
+
+/* ---------- Móvil / tablet ---------- */
+html{-webkit-text-size-adjust:100%}
+body{touch-action:manipulation;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);min-height:100dvh}
+input[type=text]{-webkit-user-select:text;user-select:text;font-size:16px} /* 16px evita el zoom automático en iOS */
+select{font-size:16px;min-height:40px}
+button.act{min-height:44px}
+.tabs button{min-height:46px}
+svg{display:block;margin:0 auto;-webkit-touch-callout:none;max-width:max(280px,calc(100dvh - 330px))}
+.hit{stroke-width:30}
+.wrap{display:grid;grid-template-columns:100%;grid-template-areas:"top" "tabs" "cfg" "status" "score" "board" "btns" "rules";align-content:start}
+.top{grid-area:top}.tabs{grid-area:tabs}#pCpu,#pOnline{grid-area:cfg}#status{grid-area:status}.score{grid-area:score}
+#board{grid-area:board}.wrap>.row{grid-area:btns}details{grid-area:rules}
+
+@media (max-width:420px){
+  .wrap{padding:10px}
+  h1{font-size:1.25rem}
+  .icon{width:40px;height:40px;font-size:1.05rem}
+  .tabs{gap:4px}.tabs button{font-size:.8rem;padding:6px 2px}
+  #status{font-size:1rem;padding:8px;min-height:40px}
+  .score b{font-size:1.3rem}.score div{padding:5px;font-size:.85rem}
+  .wrap>.row{gap:6px}.wrap>.row button.act{flex:1 1 30%;padding:8px 6px;font-size:.88rem}
+}
+/* Tablet y móvil en horizontal: tablero a la izquierda, controles a la derecha */
+@media (orientation:landscape) and (min-width:640px){
+  .wrap{max-width:1150px;grid-template-columns:minmax(0,1fr) minmax(300px,380px);column-gap:18px;
+    grid-template-rows:repeat(7,auto) 1fr;
+    grid-template-areas:"board top" "board tabs" "board cfg" "board status" "board score" "board btns" "board rules" "board ."}
+  #board{width:auto;height:calc(100dvh - 28px);max-width:100%;max-height:820px;position:sticky;top:14px;align-self:start}
+  .wrap>.row{margin-top:0}
+}
+@media (orientation:landscape) and (max-height:520px){
+  .top{margin:0 0 6px}h1{font-size:1.15rem}
+  .tabs{margin-bottom:6px}.tabs button{min-height:38px;font-size:.8rem}
+  #status{min-height:0;padding:6px;font-size:.95rem}
+  .score div{padding:3px}.score b{font-size:1.15rem}
+  details{display:none}
+}
+/* Tablet en vertical: más grande */
+@media (orientation:portrait) and (min-width:700px){
+  .wrap{max-width:720px}
+  svg{max-width:min(100%,calc(100dvh - 380px))}
+  .tabs button{font-size:1.05rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top">
+  <h1>△ Juego del Sim</h1>
+  <div><button class="icon" id="btnInstall" title="Instalar app" style="display:none">📲</button><button class="icon" id="btnSound" title="Sonido">🔊</button><button class="icon" id="btnTheme" title="Modo claro/oscuro">🌙</button></div>
+</div>
+
+<div class="tabs">
+  <button data-m="local" class="on">👥 2 jugadores</button>
+  <button data-m="cpu">🤖 vs Ordenador</button>
+  <button data-m="online">🌐 Online</button>
+</div>
+
+<div id="pCpu" class="panel hide">
+  Nivel:
+  <select id="level">
+    <option value="facil">Fácil</option>
+    <option value="medio">Medio</option>
+    <option value="dificil" selected>Difícil</option>
+  </select>
+  Tu color:
+  <select id="colCpu"><option value="1">🔴 Rojo</option><option value="2">🔵 Azul</option></select>
+</div>
+
+<div id="pOnline" class="panel hide">
+  <div id="onSetup" class="row" style="margin:0;align-items:center">
+    <select id="colOn" title="Tu color al crear partida"><option value="1">🔴 Rojo</option><option value="2">🔵 Azul</option></select>
+    <button class="act" id="btnHost">Crear partida</button>
+    <span>o</span>
+    <input type="text" id="joinCode" maxlength="5" placeholder="CÓDIGO">
+    <button class="act" id="btnJoin">Unirse</button>
+  </div>
+  <div id="onInfo" style="width:100%;text-align:center"></div>
+</div>
+
+<div id="status">—</div>
+
+<div class="score">
+  <div class="s1" id="sc1"><span id="n1">Rojo</span><b id="v1">0</b></div>
+  <div class="s2" id="sc2"><span id="n2">Azul</span><b id="v2">0</b></div>
+</div>
+
+<svg id="board" viewBox="0 0 400 400"></svg>
+
+<div class="row">
+  <button class="act" id="btnNew">Nueva partida</button>
+  <button class="act" id="btnUndo">↶ Deshacer</button>
+  <button class="act sec" id="btnReset">Reiniciar marcador</button>
+  <label><input type="checkbox" id="help"> Mostrar líneas prohibidas</label>
+  <label id="confirmLbl"><input type="checkbox" id="confirm"> Confirmar con 2º toque</label>
+</div>
+
+<details>
+  <summary>Reglas</summary>
+  <p>Hay 6 puntos y las 15 líneas que los unen. Por turnos, cada jugador colorea una línea libre con su color.</p>
+  <p><b>Pierde quien forme un triángulo con sus tres lados de su color</b> (los vértices tienen que ser tres de los 6 puntos). Las líneas que solo se cruzan en el centro no cuentan.</p>
+  <p>Nunca hay empate: con 6 puntos, alguien acaba cerrando un triángulo por fuerza (teorema de Ramsey, R(3,3)=6).</p>
+  <p class="small">Con "Mostrar líneas prohibidas" se marcan en naranja las líneas con las que cerrarías un triángulo propio.</p>
+</details>
+</div>
+
+<script>
+// ---------- Geometría ----------
+const P=[],E=[],eid=[...Array(6)].map(()=>Array(6));
+for(let i=0;i<6;i++){const a=(-90+60*i)*Math.PI/180;P.push({x:200+155*Math.cos(a),y:200+155*Math.sin(a)})}
+for(let i=0;i<6;i++)for(let j=i+1;j<6;j++){eid[i][j]=eid[j][i]=E.length;E.push([i,j])}
+const triOf=E.map(()=>[]);
+for(let i=0;i<6;i++)for(let j=i+1;j<6;j++)for(let k=j+1;k<6;k++){
+  const a=eid[i][j],b=eid[i][k],c=eid[j][k];
+  triOf[a].push([b,c]);triOf[b].push([a,c]);triOf[c].push([a,b]);
+}
+function closes(o,e,p){for(const[x,y]of triOf[e])if(o[x]===p&&o[y]===p)return[e,x,y];return null}
+function safeMoves(o,p){const r=[];for(let e=0;e<15;e++)if(!o[e]&&!closes(o,e,p))r.push(e);return r}
+function freeMoves(o){const r=[];for(let e=0;e<15;e++)if(!o[e])r.push(e);return r}
+
+// ---------- Estado ----------
+let owner=Array(15).fill(0),turn=1,starter=1,over=false,lastMove=-1,loseTri=null,hover=-1;
+let mode='local',cpuSide=2,myRole=1,hist=[],cpuTimer=null;
+const score={1:0,2:0};
+let peer=null,conn=null;
+
+// ---------- Preferencias (tema y sonido) ----------
+function load(k,d){try{const v=localStorage.getItem('sim-'+k);return v===null?d:v}catch(e){return d}}
+function save(k,v){try{localStorage.setItem('sim-'+k,v)}catch(e){}}
+let soundOn=load('sound','1')==='1';
+function applyTheme(dark){document.body.classList.toggle('dark',dark);
+  document.querySelector('meta[name=theme-color]').content=dark?'#15171c':'#f6f4ef';document.getElementById('btnTheme').textContent=dark?'☀️':'🌙'}
+applyTheme(load('theme',matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')==='dark');
+document.getElementById('btnSound').textContent=soundOn?'🔊':'🔇';
+document.getElementById('btnTheme').onclick=()=>{const d=!document.body.classList.contains('dark');applyTheme(d);save('theme',d?'dark':'light')};
+document.getElementById('btnSound').onclick=()=>{soundOn=!soundOn;save('sound',soundOn?'1':'0');
+  document.getElementById('btnSound').textContent=soundOn?'🔊':'🔇';if(soundOn)beep(660,.08)};
+
+// ---------- Sonido (Web Audio, sin archivos) ----------
+let actx=null;
+function beep(f,d,type='sine',delay=0,vol=.18){
+  if(!soundOn)return;
+  try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended')actx.resume();
+    const t=actx.currentTime+delay,o=actx.createOscillator(),g=actx.createGain();
+    o.type=type;o.frequency.setValueAtTime(f,t);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+d);
+    o.connect(g).connect(actx.destination);o.start(t);o.stop(t+d)}catch(e){}
+}
+function buzz(p){try{if(soundOn&&navigator.vibrate)navigator.vibrate(p)}catch(e){}}
+const sfx={
+  move:p=>{beep(p===1?520:390,.09,'triangle');buzz(12)},
+  undo:()=>{beep(440,.06,'square',0,.08);beep(330,.08,'square',.07,.08)},
+  win:()=>[523,659,784,1047].forEach((f,i)=>beep(f,.18,'triangle',i*.11)),
+  lose:()=>{[392,330,262,196].forEach((f,i)=>beep(f,.22,'sawtooth',i*.13,.1));buzz([60,50,140])}
+};
+
+// ---------- IA ----------
+const memo=new Map();
+function solve(o,p){ // +1 si gana quien mueve, -1 si pierde
+  const k=o.join('')+p; if(memo.has(k))return memo.get(k);
+  const s=safeMoves(o,p); let v=-1;
+  for(const e of s){o[e]=p;const r=-solve(o,3-p);o[e]=0;if(r===1){v=1;break}}
+  memo.set(k,v);return v;
+}
+function h(o,p){return safeMoves(o,p).length-safeMoves(o,3-p).length}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function bestBy(moves,f){let best=-1e9,bs=[];for(const m of moves){const v=f(m);if(v>best){best=v;bs=[m]}else if(v===best)bs.push(m)}return pick(bs)}
+function twoPly(o,p,m){
+  o[m]=p;const opp=3-p,rs=safeMoves(o,opp);let w=1e9;
+  if(!rs.length)w=999;else for(const r of rs){o[r]=opp;w=Math.min(w,h(o,p));o[r]=0}
+  o[m]=0;return w;
+}
+function chooseMove(o,p,level){
+  const safe=safeMoves(o,p);
+  if(!safe.length)return pick(freeMoves(o));
+  if(level==='facil')return pick(safe);
+  if(level==='medio')return Math.random()<.3?pick(safe):bestBy(safe,m=>{o[m]=p;const v=h(o,p);o[m]=0;return v});
+  if(freeMoves(o).length<=11){
+    const win=safe.filter(m=>{o[m]=p;const v=-solve(o,3-p);o[m]=0;return v===1});
+    if(win.length)return pick(win);
+  }
+  return bestBy(safe,m=>twoPly(o,p,m));
+}
+function cpuMove(){
+  if(mode!=='cpu'||over||turn!==cpuSide)return;
+  play(chooseMove(owner.slice(),turn,document.getElementById('level').value));
+}
+
+// ---------- Juego ----------
+function name(p){
+  if(mode==='cpu')return p===cpuSide?'Ordenador':'Tú';
+  if(mode==='online')return p===myRole?'Tú':'Rival';
+  return p===1?'Rojo':'Azul';
+}
+function canPlay(){
+  if(over)return false;
+  if(mode==='cpu'&&turn===cpuSide)return false;
+  if(mode==='online'&&(!conn||!conn.open||turn!==myRole))return false;
+  return true;
+}
+function scheduleCpu(ms){clearTimeout(cpuTimer);if(mode==='cpu'&&!over&&turn===cpuSide)cpuTimer=setTimeout(cpuMove,ms)}
+function startGame(s){
+  clearTimeout(cpuTimer);
+  starter=s;owner=Array(15).fill(0);turn=s;over=false;lastMove=-1;loseTri=null;hover=-1;hist=[];
+  render();scheduleCpu(600);
+}
+function play(e,fromNet){
+  if(over||owner[e])return;
+  owner[e]=turn;lastMove=e;hover=-1;hist.push({e,p:turn});
+  if(mode==='online'&&!fromNet&&conn)conn.send({t:'move',e});
+  const tri=closes(owner,e,turn);
+  if(tri){over=true;loseTri=tri;score[3-turn]++;
+    const humanWon=mode==='local'||(mode==='cpu'&&turn===cpuSide)||(mode==='online'&&turn!==myRole);
+    humanWon?sfx.win():sfx.lose()}
+  else{sfx.move(turn);turn=3-turn}
+  render();scheduleCpu(550);
+}
+// Deshacer una jugada (la última)
+function undoOne(){
+  const m=hist.pop();if(!m)return;
+  if(over)score[3-m.p]--;
+  owner[m.e]=0;turn=m.p;over=false;loseTri=null;
+  lastMove=hist.length?hist[hist.length-1].e:-1;
+}
+function canUndo(){
+  if(!hist.length)return false;
+  if(mode==='cpu')return hist.some(m=>m.p!==cpuSide);
+  if(mode==='online')return !!(conn&&conn.open)&&!over&&hist[hist.length-1].p===myRole;
+  return true;
+}
+function undo(fromNet){
+  if(!fromNet&&!canUndo())return;
+  clearTimeout(cpuTimer);
+  if(mode==='cpu'){ // vuelve al último turno del humano
+    undoOne();while(hist.length&&turn===cpuSide)undoOne();
+  }else undoOne();
+  hover=-1;
+  if(mode==='online'&&!fromNet&&conn)conn.send({t:'undo'});
+  sfx.undo();render();scheduleCpu(600);
+}
+
+// ---------- Render ----------
+const svg=document.getElementById('board'),NS='http://www.w3.org/2000/svg';
+function el(t,a){const x=document.createElementNS(NS,t);for(const k in a)x.setAttribute(k,a[k]);return x}
+// El tablero se construye una sola vez; render() solo cambia clases (así el toque no se pierde en móvil)
+const gL=el('g',{}),gH=el('g',{}),gN=el('g',{}),lines=[],hits=[];
+let lastPtr='mouse';
+svg.append(gL,gH,gN);
+E.forEach(([i,j],e)=>{
+  const a={x1:P[i].x,y1:P[i].y,x2:P[j].x,y2:P[j].y};
+  lines.push(gL.appendChild(el('line',a)));
+  const hl=gH.appendChild(el('line',{...a,class:'hit'}));hits.push(hl);
+  hl.addEventListener('pointerdown',ev=>{lastPtr=ev.pointerType});
+  hl.addEventListener('pointerenter',ev=>{if(ev.pointerType==='mouse'&&hover!==e){hover=e;render()}});
+  hl.addEventListener('pointerleave',ev=>{if(ev.pointerType==='mouse'&&hover===e){hover=-1;render()}});
+  hl.addEventListener('click',ev=>{
+    ev.stopPropagation();if(!canPlay()||owner[e])return;
+    // En pantallas táctiles: 1er toque = vista previa, 2º toque = confirmar
+    if(lastPtr!=='mouse'&&document.getElementById('confirm').checked&&hover!==e){hover=e;render();buzz(8);return}
+    play(e);
+  });
+});
+svg.addEventListener('click',()=>{if(hover!==-1){hover=-1;render()}});
+P.forEach((p,i)=>{gN.appendChild(el('circle',{cx:p.x,cy:p.y,r:16,class:'node'}));
+  const t=gN.appendChild(el('text',{x:p.x,y:p.y,class:'lbl'}));t.textContent='ABCDEF'[i]});
+
+function render(){
+  const help=document.getElementById('help').checked&&canPlay();
+  for(let e=0;e<15;e++){
+    let cls='edge e'+owner[e];
+    if(!owner[e]&&hover===e&&canPlay())cls='edge p'+turn;
+    else if(!owner[e]&&help&&closes(owner,e,turn))cls='edge danger';
+    if(e===lastMove&&!over)cls+=' last';
+    if(loseTri&&loseTri.includes(e))cls+=' lose';
+    lines[e].setAttribute('class',cls);
+    if(owner[e])gL.appendChild(lines[e]); // líneas coloreadas por encima
+    hits[e].style.display=owner[e]?'none':'';
+  }
+  // estado
+  const st=document.getElementById('status'),col=p=>p===1?'var(--r)':'var(--b)';
+  if(mode==='online'&&(!conn||!conn.open)){st.innerHTML='Crea una partida o únete con un código';st.style.color='var(--mut)'}
+  else if(over){const L=turn,W=3-turn;
+    st.innerHTML=`🏆 ¡Gana ${name(W)}! <span class="small">(${name(L)} ha cerrado un triángulo)</span>`;st.style.color=col(W)}
+  else{st.innerHTML=(mode==='cpu'&&turn===cpuSide)?'El ordenador está pensando…':
+    mode==='cpu'?'Tu turno':mode==='online'?(turn===myRole?'Tu turno':'Turno del rival…'):`Turno de ${name(turn)}`;st.style.color=col(turn);
+    if(hover!==-1&&lastPtr!=='mouse'&&canPlay())st.innerHTML+=' <span class="small">· toca otra vez para confirmar</span>'}
+  document.getElementById('n1').textContent=name(1)+(mode!=='local'?' (Rojo)':'');
+  document.getElementById('n2').textContent=name(2)+(mode!=='local'?' (Azul)':'');
+  document.getElementById('v1').textContent=score[1];document.getElementById('v2').textContent=score[2];
+  document.getElementById('sc1').classList.toggle('turn',!over&&turn===1);
+  document.getElementById('sc2').classList.toggle('turn',!over&&turn===2);
+  document.getElementById('btnNew').disabled=mode==='online'&&(!conn||!conn.open);
+  document.getElementById('btnUndo').disabled=!canUndo();
+}
+
+// ---------- Online (PeerJS) ----------
+const PREFIX='sim-etx-';
+const info=document.getElementById('onInfo');
+function closeNet(){try{conn&&conn.close()}catch(e){}try{peer&&peer.destroy()}catch(e){}conn=null;peer=null}
+function showRole(){info.innerHTML=`✅ Conectado · eres <b style="color:${myRole===1?'var(--r)':'var(--b)'}">${myRole===1?'🔴 Rojo':'🔵 Azul'}</b> <span class="small">(empieza Rojo)</span>`}
+function setupConn(c,isHost){
+  conn=c;
+  c.on('open',()=>{document.getElementById('onSetup').style.display='none';
+    score[1]=score[2]=0;
+    if(isHost){myRole=+document.getElementById('colOn').value;showRole();
+      c.send({t:'hello',hostColor:myRole});startGame(1);c.send({t:'new',starter:1})}
+    else{info.textContent='Conectado, esperando al anfitrión…';render()}});
+  c.on('data',d=>{
+    if(d.t==='hello'){myRole=3-d.hostColor;showRole();render()}
+    else if(d.t==='move')play(d.e,true);
+    else if(d.t==='undo')undo(true);
+    else if(d.t==='new')startGame(d.starter);
+    else if(d.t==='reset'){score[1]=score[2]=0;render()}
+  });
+  c.on('close',()=>{info.innerHTML='⚠️ El rival se ha desconectado';conn=null;
+    document.getElementById('onSetup').style.display='';render()});
+  c.on('error',err=>info.textContent='Error: '+err);
+}
+function netOK(){if(typeof Peer==='undefined'||!navigator.onLine){info.textContent='⚠️ Sin conexión a Internet: el modo online no está disponible';return false}return true}
+function host(){
+  if(!netOK())return;
+  closeNet();
+  const code=Math.random().toString(36).replace(/[^a-z0-9]/g,'').slice(0,5).toUpperCase().padEnd(5,'X');
+  info.textContent='Creando partida…';
+  peer=new Peer(PREFIX+code);
+  peer.on('open',()=>{const link=location.href.split('?')[0]+'?sim='+code;
+    info.innerHTML=`Código: <span class="code">${code}</span><br><span class="small">Pásale el código a tu rival o este enlace:</span><br>
+    <button class="act" style="margin-top:6px" id="cp">📋 Copiar enlace</button> <span class="small">Esperando rival…</span>`;
+    document.getElementById('cp').onclick=()=>{navigator.clipboard.writeText(link);document.getElementById('cp').textContent='✔ Copiado'}});
+  peer.on('connection',c=>{if(conn&&conn.open){c.close();return}setupConn(c,true)});
+  peer.on('error',err=>{info.textContent='Error: '+err.type+(err.type==='unavailable-id'?' (vuelve a intentarlo)':'')});
+}
+function join(code){
+  code=(code||document.getElementById('joinCode').value).trim().toUpperCase();
+  if(code.length<5){info.textContent='Escribe el código de 5 caracteres';return}
+  if(!netOK())return;
+  closeNet();info.textContent='Conectando…';
+  peer=new Peer();
+  peer.on('open',()=>setupConn(peer.connect(PREFIX+code,{reliable:true}),false));
+  peer.on('error',err=>{info.textContent=err.type==='peer-unavailable'?'No existe esa partida (revisa el código)':'Error: '+err.type});
+}
+document.getElementById('btnHost').onclick=host;
+document.getElementById('btnJoin').onclick=()=>join();
+
+// ---------- Controles ----------
+function setMode(m){
+  if(mode==='online'&&m!=='online'){closeNet();info.innerHTML='';document.getElementById('onSetup').style.display=''}
+  mode=m;score[1]=score[2]=0;
+  cpuSide=3-(+document.getElementById('colCpu').value);
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  document.getElementById('pCpu').classList.toggle('hide',m!=='cpu');
+  document.getElementById('pOnline').classList.toggle('hide',m!=='online');
+  startGame(1);
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+document.getElementById('btnNew').onclick=()=>{
+  const s=3-starter;
+  if(mode==='online'){if(!conn||!conn.open)return;conn.send({t:'new',starter:s})}
+  startGame(s);
+};
+document.getElementById('btnReset').onclick=()=>{score[1]=score[2]=0;if(mode==='online'&&conn)conn.send({t:'reset'});render()};
+document.getElementById('help').onchange=render;
+// En táctil, la confirmación viene activada; con ratón se oculta
+const touchDev=matchMedia('(pointer: coarse)').matches;
+document.getElementById('confirm').checked=load('confirm',touchDev?'1':'0')==='1';
+document.getElementById('confirm').onchange=e=>{save('confirm',e.target.checked?'1':'0');hover=-1;render()};
+if(!touchDev)document.getElementById('confirmLbl').style.display='none';
+document.getElementById('btnUndo').onclick=()=>undo();
+document.getElementById('colCpu').onchange=()=>setMode('cpu');
+
+// ---------- PWA ----------
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+let installEvt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;document.getElementById('btnInstall').style.display=''});
+document.getElementById('btnInstall').onclick=async()=>{if(!installEvt)return;installEvt.prompt();await installEvt.userChoice;installEvt=null;document.getElementById('btnInstall').style.display='none'};
+addEventListener('appinstalled',()=>{document.getElementById('btnInstall').style.display='none'});
+
+// Unirse por enlace ?sim=CODIGO
+const q=new URLSearchParams(location.search).get('sim');
+if(q){setMode('online');document.getElementById('joinCode').value=q;join(q)}else render();
+</script>
+</body>
+</html>
